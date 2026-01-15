@@ -6,20 +6,18 @@
 
     <parent>
         <groupId>ru.practicum</groupId>
-        <artifactId>ewm-stats-service</artifactId>
+        <artifactId>infra</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <name>service</name>
-    <artifactId>service</artifactId>
-    <version>0.0.1</version>
+    <artifactId>gateway-server</artifactId>
+    <name>gateway-server</name>
     <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
-            <groupId>ru.practicum</groupId>
-            <artifactId>dto</artifactId>
-            <version>0.0.1</version>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -28,6 +26,10 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
     </dependencies>
 
@@ -39,4 +41,5 @@
             </plugin>
         </plugins>
     </build>
+
 </project>
