@@ -78,6 +78,14 @@
                                       tofile="${project.build.directory}/main-service.jar"
                                       overwrite="true"
                                       failonerror="false"/>
+                                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                                      tofile="${project.build.directory}/ewm-main-service.jar"
+                                      overwrite="true"
+                                      failonerror="false"/>
+                                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                                      tofile="${maven.multiModuleProjectDirectory}/main-service.jar"
+                                      overwrite="true"
+                                      failonerror="false"/>
                             </target>
                         </configuration>
                     </execution>
