@@ -56,6 +56,7 @@
     </dependencies>
 
     <build>
+        <finalName>main-service</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -76,7 +77,12 @@
                             <target>
                                 <copy file="${project.build.directory}/${project.build.finalName}.jar"
                                       tofile="${project.build.directory}/main-service.jar"
-                                      overwrite="true"/>
+                                      overwrite="true"
+                                      failonerror="false"/>
+                                <copy file="${project.build.directory}/${project.build.finalName}.jar.original"
+                                      tofile="${project.build.directory}/main-service.jar"
+                                      overwrite="true"
+                                      failonerror="false"/>
                             </target>
                         </configuration>
                     </execution>
