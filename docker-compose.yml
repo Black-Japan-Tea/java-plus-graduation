@@ -35,7 +35,7 @@ services:
 
   ewm-service:
     container_name: ewm-service
-    build: ewm-main-service
+    build: core/ewm-main-service
     ports:
       - "8080:8080"
       - "5555:5005"
