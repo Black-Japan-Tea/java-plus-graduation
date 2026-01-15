@@ -44,39 +44,57 @@ public class EventMapper {
     }
 
     public EventFullDto toEventFullDto(Event event) {
+        if (event == null) {
+            throw new IllegalArgumentException("Event cannot be null");
+        }
         String publishedOn = null;
         if (event.getPublishedOn() != null) {
             publishedOn = event.getPublishedOn().format(formatter);
         }
+        String eventDate = null;
+        if (event.getEventDate() != null) {
+            eventDate = event.getEventDate().format(formatter);
+        }
+        String createdOn = null;
+        if (event.getCreatedOn() != null) {
+            createdOn = event.getCreatedOn().format(formatter);
+        }
         return new EventFullDto(
                 event.getId(),
                 event.getAnnotation(),
-                categoryMapper.toCategoryDto(event.getCategory()),
+                event.getCategory() != null ? categoryMapper.toCategoryDto(event.getCategory()) : null,
                 event.getDescription(),
-                event.getEventDate().format(formatter),
+                eventDate,
                 event.getLocation(),
                 event.getPaid(),
                 event.getParticipantLimit(),
                 event.getRequestModeration(),
                 event.getTitle(),
                 event.getConfirmedRequests(),
-                event.getCreatedOn().format(formatter),
-                userMapper.toUserShortDto(event.getInitiator()),
+                createdOn,
+                event.getInitiator() != null ? userMapper.toUserShortDto(event.getInitiator()) : null,
                 publishedOn,
                 event.getState(),
                 event.getViews(),
-                commentRepository.getCommentsByEventId(event.getId())
+                event.getId() != null ? commentMapper.toCommentShortList(commentRepository.findByEventId(event.getId())) : new java.util.ArrayList<>()
         );
     }
 
     public EventShortDto toEventShortDto(Event event) {
+        if (event == null) {
+            throw new IllegalArgumentException("Event cannot be null");
+        }
+        String eventDate = null;
+        if (event.getEventDate() != null) {
+            eventDate = event.getEventDate().format(formatter);
+        }
         return new EventShortDto(
                 event.getId(),
                 event.getAnnotation(),
-                categoryMapper.toCategoryDto(event.getCategory()),
+                event.getCategory() != null ? categoryMapper.toCategoryDto(event.getCategory()) : null,
                 event.getConfirmedRequests(),
-                event.getEventDate().format(formatter),
-                userMapper.toUserShortDto(event.getInitiator()),
+                eventDate,
+                event.getInitiator() != null ? userMapper.toUserShortDto(event.getInitiator()) : null,
                 event.getPaid(),
                 event.getTitle(),
                 event.getViews());

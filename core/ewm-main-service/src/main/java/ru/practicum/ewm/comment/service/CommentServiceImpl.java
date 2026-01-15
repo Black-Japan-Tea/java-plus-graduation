@@ -77,6 +77,6 @@ public class CommentServiceImpl implements CommentService {
     }
 
     public List<CommentShort> getCommentsForEvent(Long eventId) {
-        return commentRepository.getCommentsByEventId(eventId);
+        return mapper.toCommentShortList(commentRepository.findByEventId(eventId));
     }
 }

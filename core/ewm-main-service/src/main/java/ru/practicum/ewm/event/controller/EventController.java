@@ -42,7 +42,7 @@ public class EventController {
     @PatchMapping("/users/{userId}/events/{eventId}")
     public EventFullDto updateByIdByOwner(@PathVariable Long userId,
                                           @PathVariable Long eventId,
-                                          @Valid @RequestBody UpdateEventUserRequest event) {
+                                          @Valid @RequestBody(required = false) UpdateEventUserRequest event) {
         return eventService.updateByIdByOwner(userId, eventId, event);
     }
 
@@ -96,7 +96,7 @@ public class EventController {
 
     @PatchMapping("/admin/events/{eventId}")
     public EventFullDto adminVerification(@PathVariable Long eventId,
-                                          @Valid @RequestBody UpdateEventAdminRequest event) {
+                                          @Valid @RequestBody(required = false) UpdateEventAdminRequest event) {
         return eventService.updateByIdByAdmin(eventId, event);
     }
 }

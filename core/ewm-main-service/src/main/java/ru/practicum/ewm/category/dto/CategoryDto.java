@@ -12,6 +12,6 @@ import org.hibernate.validator.constraints.Length;
 public class CategoryDto {
     private Integer id;
     @NotBlank
-    @Length(max = 50)
+    @Length(min = 1, max = 50)
     private String name;
 }

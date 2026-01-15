@@ -21,11 +21,11 @@ create table if not exists locations
 create table if not exists events
 (
     id bigint generated always as identity primary key,
-    annotation varchar not null,
+    annotation varchar(2000) not null,
     category_id bigint not null references categories (id) on delete cascade,
     confirmed_requests int,
     created_on timestamp without time zone not null,
-    description varchar not null,
+    description varchar(7000) not null,
     event_date timestamp without time zone not null,
     user_id bigint not null references users (id) on delete cascade,
     location_id bigint not null references locations (id) on delete cascade,
@@ -33,7 +33,7 @@ create table if not exists events
     participant_limit int,
     published_on timestamp without time zone,
     request_moderation bool,
-    title varchar not null,
+    title varchar(120) not null,
     state varchar not null,
     views int
 );

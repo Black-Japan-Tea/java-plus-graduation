@@ -1,18 +1,14 @@
 package ru.practicum.ewm.stats;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.util.DefaultUriBuilderFactory;
+import org.springframework.web.client.RestTemplate;
 import ru.practicum.ewm.EndpointHitDto;
 import ru.practicum.ewm.ViewStatsDto;
 import ru.practicum.ewm.client.BaseClient;
@@ -23,24 +19,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-@Service
 public class StatService extends BaseClient {
-    private static final String API_PREFIX = "/";
+    private static final String API_PREFIX = "/hit";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final String serverUrl;
 
-    @Autowired
-    public StatService(@Value("${stats-service.url}") String serverUrl,
-                       RestTemplateBuilder builder) {
-        super(
-                builder
-                        .uriTemplateHandler(new DefaultUriBuilderFactory(serverUrl + API_PREFIX))
-                        .requestFactory(() -> new HttpComponentsClientHttpRequestFactory())
-                        .build()
-        );
+    public StatService(RestTemplate restTemplate, @Value("${stats-service.url}") String serverUrl) {
+        super(restTemplate);
+        this.serverUrl = serverUrl;
     }
 
     public EndpointHitDto post(@RequestBody EndpointHitDto endpoint) {
-        ResponseEntity<EndpointHitDto> responseEntity = this.post("/hit", endpoint, new EndpointHitDto());
+        String fullUrl = serverUrl + API_PREFIX;
+        ResponseEntity<EndpointHitDto> responseEntity = this.post(fullUrl, endpoint, new EndpointHitDto());
         return responseEntity.getBody();
     }
 
@@ -49,7 +40,7 @@ public class StatService extends BaseClient {
             String startStr = start.format(FORMATTER);
             String endStr = end.format(FORMATTER);
 
-            StringBuilder urlBuilder = new StringBuilder("/stats?start={start}&end={end}");
+            StringBuilder urlBuilder = new StringBuilder(serverUrl + "/stats?start={start}&end={end}");
 
             Map<String, Object> parameters = new java.util.HashMap<>();
             parameters.put("start", startStr);
