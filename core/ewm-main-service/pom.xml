@@ -64,6 +64,13 @@
                 <configuration>
                     <mainClass>ru.practicum.ewm.ExploreWithMeMainService</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>com.mysema.maven</groupId>
