@@ -3,7 +3,7 @@ version: '3.1'
 services:
   stats-server:
     container_name: stats-server
-    build: stats-service/service
+    build: stats-server/service
     ports:
       - "9090:9090"
     depends_on:
