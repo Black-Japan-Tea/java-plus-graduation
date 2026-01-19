@@ -24,7 +24,7 @@ public class StatService extends BaseClient {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final String serverUrl;
 
-    public StatService(RestTemplate restTemplate, @Value("${stats-service.url}") String serverUrl) {
+    public StatService(RestTemplate restTemplate, @Value("${stats-server.url}") String serverUrl) {
         super(restTemplate);
         this.serverUrl = serverUrl;
     }
