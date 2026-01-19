@@ -16,6 +16,11 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>common</module>
+        <module>events</module>
+        <module>requests</module>
+        <module>admin-users</module>
+        <module>extra</module>
         <module>main-service</module>
     </modules>
 
