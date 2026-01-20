@@ -5,10 +5,10 @@
 - `config-server` — централизованная конфигурация.
 - `discovery-server` (Eureka) — обнаружение сервисов.
 - Основные сервисы:
-  - `events-service` — управление событиями, публикации, поиск и фильтрация, админская модерация.
-  - `requests-service` — заявки на участие и контроль статусов (создание, отмена, подтверждение).
-  - `admin-users-service` — администрирование пользователей.
-  - `extra-service` — категории, подборки, комментарии и их модерация.
+  - `event-service` — управление событиями, публикации, поиск и фильтрация, админская модерация.
+  - `request-service` — заявки на участие и контроль статусов (создание, отмена, подтверждение).
+  - `user-service` — администрирование пользователей.
+  - `comment-service` — категории, подборки, комментарии и их модерация.
 - `stats-server` — сбор и выдача статистики просмотров.
 
 Все сервисы — Spring Boot приложения, регистрируются в Eureka и получают настройки из Config Server.  
@@ -22,19 +22,19 @@
 
 ## Маршрутизация в Gateway
 Все запросы идут через gateway:
-- `/users/*/requests/**` → `requests-service`
+- `/users/*/requests/**` → `request-service`
 - `/categories/**`, `/admin/categories/**`, `/compilations/**`, `/admin/compilations/**`,
-  `/users/*/comments/**`, `/admin/comments/**` → `extra-service`
-- `/admin/users/**` → `admin-users-service`
-- `/users/*/events/**`, `/events/**`, `/admin/events/**` → `events-service`
+  `/users/*/comments/**`, `/admin/comments/**` → `comment-service`
+- `/admin/users/**` → `user-service`
+- `/users/*/events/**`, `/events/**`, `/admin/events/**` → `event-service`
 
 ## Внутренний API
 Прямые межсервисные HTTP-вызовы (OpenFeign, Eureka):
-- `events-service` → `requests-service`
+- `event-service` → `request-service`
   - `GET /internal/events/{eventId}/requests` — заявки по событию
   - `PATCH /internal/events/{eventId}/requests` — изменение статусов заявок
   - `GET /internal/events/{eventId}/requests/count?status=CONFIRMED` — количество заявок
-- `events-service` → `stats-server`
+- `event-service` → `stats-server`
   - `POST /hit` — отправка информации о просмотре (`EndpointHitDto`)
   - `GET /stats` — получение статистики просмотров (`ViewStatsDto`)
 
