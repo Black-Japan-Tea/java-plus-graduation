@@ -2,6 +2,7 @@ package ru.practicum.ewm.exception.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -83,6 +84,15 @@ public class ErrorHandler {
     public ErrorResponse handleMissingServletRequestParameterException(final MissingServletRequestParameterException exception) {
         log.error("Missing parameter error: ", exception);
         return new ErrorResponse("Отсутствует обязательный параметр: " + exception.getParameterName(),
+                "Ошибка валидации данных, данные указаны некорректно",
+                "BAD_REQUEST", LocalDateTime.now().format(PATTERN));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(BAD_REQUEST)
+    public ErrorResponse handleHttpMessageNotReadableException(final HttpMessageNotReadableException exception) {
+        log.error("Unreadable request body: ", exception);
+        return new ErrorResponse("Required request body is missing",
                 "Ошибка валидации данных, данные указаны некорректно",
                 "BAD_REQUEST", LocalDateTime.now().format(PATTERN));
     }
