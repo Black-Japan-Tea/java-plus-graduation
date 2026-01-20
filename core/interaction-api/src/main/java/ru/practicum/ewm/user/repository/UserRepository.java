@@ -13,5 +13,5 @@ import java.util.Collection;
 public interface UserRepository extends JpaRepository<User, Long>, QuerydslPredicateExecutor<User> {
     Page<User> findAllByIdIn(Collection<Long> id, Pageable pageable);
 
-    boolean existsByName(String name);
+    boolean existsByEmail(String email);
 }

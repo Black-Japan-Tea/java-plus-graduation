@@ -27,8 +27,8 @@ public class UserServiceImpl implements UserService {
     public UserDto create(UserDto user) {
         log.info("create({})", user);
         User thisUser = mapper.toUser(user);
-        if (repository.existsByName(thisUser.getName())) {
-            throw new DataViolationException("Пользователь уже существует");
+        if (repository.existsByEmail(thisUser.getEmail())) {
+            throw new DataViolationException("Пользователь с таким email уже существует");
         }
         User savedUser = repository.save(thisUser);
         log.info("Пользователь сохранён: {}", savedUser);
