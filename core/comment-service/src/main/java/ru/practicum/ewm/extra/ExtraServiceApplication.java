@@ -3,6 +3,7 @@ package ru.practicum.ewm.extra;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -15,6 +16,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "ru.practicum.ewm.user.mapper",
         "ru.practicum.ewm.exception.controller"
 })
+@EnableFeignClients(basePackages = "ru.practicum.ewm.user.client")
 @EnableJpaRepositories(basePackages = {
         "ru.practicum.ewm.category.repository",
         "ru.practicum.ewm.compilation.repository",

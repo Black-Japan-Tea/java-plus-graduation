@@ -10,7 +10,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableFeignClients(basePackages = {
         "ru.practicum.ewm.stats",
-        "ru.practicum.ewm.request.client"
+        "ru.practicum.ewm.request.client",
+        "ru.practicum.ewm.user.client"
 })
 @ComponentScan(basePackages = {
         "ru.practicum.ewm.event",

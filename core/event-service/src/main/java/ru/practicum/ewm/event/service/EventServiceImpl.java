@@ -27,6 +27,8 @@ import ru.practicum.ewm.request.client.RequestsClient;
 import ru.practicum.ewm.request.dto.ParticipationRequestDto;
 import ru.practicum.ewm.request.dto.RequestStatusUpdateRequest;
 import ru.practicum.ewm.stats.StatService;
+import ru.practicum.ewm.user.client.UsersClient;
+import ru.practicum.ewm.user.dto.UserDto;
 import ru.practicum.ewm.user.model.User;
 import ru.practicum.ewm.user.repository.UserRepository;
 
@@ -43,7 +45,7 @@ import static ru.practicum.ewm.enums.State.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final LocationRepository locationRepository;
@@ -52,6 +54,7 @@ public class EventServiceImpl implements EventService {
     private final RequestsClient requestsClient;
     private final CategoryRepository categoryRepository;
     private final StatService statsService;
+    private final UsersClient usersClient;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
@@ -340,8 +343,19 @@ public class EventServiceImpl implements EventService {
 
     private User userSearch(Long userId) {
         log.info("userSearch({})", userId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            List<UserDto> users = usersClient.getUsers(new Long[]{userId});
+            if (users == null || users.isEmpty()) {
+                throw new NotFoundException("Пользователь не найден");
+            }
+            UserDto userDto = users.get(0);
+            userRepository.insertIfMissing(userDto.getId(), userDto.getEmail(), userDto.getName());
+            user = userRepository.findById(userId).orElse(null);
+        }
+        if (user == null) {
+            throw new NotFoundException("Пользователь не найден");
+        }
         log.info("Запрос на поиск пользователя прошёл успешно: {}", user);
         return user;
     }

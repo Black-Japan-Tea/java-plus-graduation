@@ -12,6 +12,8 @@ import ru.practicum.ewm.comment.repository.CommentRepository;
 import ru.practicum.ewm.event.repository.EventRepository;
 import ru.practicum.ewm.exception.AccessException;
 import ru.practicum.ewm.exception.NotFoundException;
+import ru.practicum.ewm.user.client.UsersClient;
+import ru.practicum.ewm.user.dto.UserDto;
 import ru.practicum.ewm.user.model.User;
 import ru.practicum.ewm.user.repository.UserRepository;
 
@@ -26,12 +28,24 @@ public class CommentServiceImpl implements CommentService {
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
     private final CommentMapper mapper;
+    private final UsersClient usersClient;
 
     @Override
     @Transactional
     public FullCommentDto addCommentToEventByUser(Long authorId, CommentDto newCommentDto) {
-        User author = userRepository.findById(authorId)
-                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        User author = userRepository.findById(authorId).orElse(null);
+        if (author == null) {
+            List<UserDto> users = usersClient.getUsers(new Long[]{authorId});
+            if (users == null || users.isEmpty()) {
+                throw new NotFoundException("Пользователь не найден");
+            }
+            UserDto userDto = users.get(0);
+            userRepository.insertIfMissing(userDto.getId(), userDto.getEmail(), userDto.getName());
+            author = userRepository.findById(authorId).orElse(null);
+        }
+        if (author == null) {
+            throw new NotFoundException("Пользователь не найден");
+        }
         if (!eventRepository.existsById(newCommentDto.getEventId())) {
             throw new NotFoundException("Событие не найдено");
         }

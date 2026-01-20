@@ -15,6 +15,8 @@ import ru.practicum.ewm.request.dto.RequestStatusUpdateRequest;
 import ru.practicum.ewm.request.mapper.RequestMapper;
 import ru.practicum.ewm.request.model.ParticipationRequest;
 import ru.practicum.ewm.request.repository.RequestRepository;
+import ru.practicum.ewm.user.client.UsersClient;
+import ru.practicum.ewm.user.dto.UserDto;
 import ru.practicum.ewm.user.model.User;
 import ru.practicum.ewm.user.repository.UserRepository;
 
@@ -33,6 +35,7 @@ public class RequestServiceImpl implements RequestService {
     private final RequestMapper requestMapper;
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
+    private final UsersClient usersClient;
 
     @Override
     @Transactional
@@ -65,7 +68,7 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ParticipationRequestDto> get(Long userId) {
         log.info("get({})", userId);
         User user = userValidation(userId);
@@ -127,7 +130,19 @@ public class RequestServiceImpl implements RequestService {
 
     private User userValidation(Long userId) {
         log.info("userValidation({})", userId);
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            List<UserDto> users = usersClient.getUsers(new Long[]{userId});
+            if (users == null || users.isEmpty()) {
+                throw new NotFoundException("Пользователь не найден");
+            }
+            UserDto userDto = users.get(0);
+            userRepository.insertIfMissing(userDto.getId(), userDto.getEmail(), userDto.getName());
+            user = userRepository.findById(userId).orElse(null);
+        }
+        if (user == null) {
+            throw new NotFoundException("Пользователь не найден");
+        }
         log.info("Зарос на поиск пользователя прошёл успешно: {}", user);
         return user;
     }
