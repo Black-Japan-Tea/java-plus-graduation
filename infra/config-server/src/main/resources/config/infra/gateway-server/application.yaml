@@ -1,0 +1,33 @@
+server:
+  port: 8080
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        # ===== comment-service =====
+        - id: comment-service
+          uri: lb://comment-service
+          order: 0
+          predicates:
+            - Path=/admin/comments, /users/*/comment/**, /comment/**
+        # ===== request-service =====
+        - id: request-service
+          uri: lb://request-service
+          order: 10
+          predicates:
+            - Path=/users/*/requests/**, /users/*/events/*/requests/**
+        # ===== user-service (admin only) =====
+        - id: user-service
+          uri: lb://user-service
+          order: 20
+          predicates:
+            - Path=/admin/users/**
+        # ===== event-service: events + categories + compilations =====
+        - id: event-service
+          uri: lb://event-service
+          order: 30
+          predicates:
+            - Path=/events/**, /users/*/events/**, /admin/events/**, /admin/categories/**, /categories/**, /admin/compilations/**, /compilations/**
