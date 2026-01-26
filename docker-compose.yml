@@ -133,7 +133,7 @@ services:
       context: .
       dockerfile: stats/stats-server/Dockerfile
       args:
-        JAR_FILE: stats/stats-collector/target/*.jar
+        JAR_FILE: stats/collector/target/*.jar
     image: ewm-stats-collector
     container_name: ewm-stats-collector
     restart: unless-stopped
@@ -156,7 +156,7 @@ services:
       context: .
       dockerfile: stats/stats-server/Dockerfile
       args:
-        JAR_FILE: stats/stats-aggregator/target/*.jar
+        JAR_FILE: stats/aggregator/target/*.jar
     image: ewm-stats-aggregator
     container_name: ewm-stats-aggregator
     restart: unless-stopped
@@ -181,7 +181,7 @@ services:
       context: .
       dockerfile: stats/stats-server/Dockerfile
       args:
-        JAR_FILE: stats/stats-analyzer/target/*.jar
+        JAR_FILE: stats/analyzer/target/*.jar
     image: ewm-stats-analyzer
     container_name: ewm-stats-analyzer
     restart: unless-stopped
