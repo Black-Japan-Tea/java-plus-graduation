@@ -46,10 +46,9 @@ public class SimilarityAggregator {
             double oldMin = Math.min(oldWeight, otherWeight);
             double newMin = Math.min(newWeight, otherWeight);
             double delta = newMin - oldMin;
-            if (delta == 0.0) {
-                continue;
+            if (delta != 0.0) {
+                addMinWeightsSum(eventId, otherEventId, delta);
             }
-            addMinWeightsSum(eventId, otherEventId, delta);
 
             double sMin = getMinWeightsSum(eventId, otherEventId);
             if (sMin <= 0.0) {
