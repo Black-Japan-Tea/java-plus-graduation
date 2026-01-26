@@ -144,7 +144,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     private EventFullDto getEvent(Long eventId) {
-        return eventClient.getEventById(eventId, "commentService");
+        return eventClient.getEventById(eventId, null);
     }
 
     private Comment getCommentByUserId(Long userId, Long commentId) {

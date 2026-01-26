@@ -1,4 +1,34 @@
 services:
+  discovery-server:
+    build:
+      context: .
+      dockerfile: stats/stats-server/Dockerfile
+      args:
+        JAR_FILE: infra/discovery-server/target/*.jar
+    image: ewm-discovery
+    container_name: ewm-discovery
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=discovery-server
+
+  config-server:
+    build:
+      context: .
+      dockerfile: stats/stats-server/Dockerfile
+      args:
+        JAR_FILE: infra/config-server/target/*.jar
+    image: ewm-config-server
+    container_name: ewm-config-server
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    depends_on:
+      - discovery-server
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+
   stats-db:
     image: postgres:16.1
     container_name: postgres-stats-db
@@ -24,10 +54,18 @@ services:
     depends_on:
       stats-db:
         condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://stats-db:5432/statistics
       - SPRING_DATASOURCE_USERNAME=statistics
       - SPRING_DATASOURCE_PASSWORD=statistics
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED=false
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
 
   ewm-db:
     image: postgres:16.1
@@ -44,3 +82,126 @@ services:
       timeout: 5s
       interval: 5s
       retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: ewm-zookeeper
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ewm-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-broker-api-versions --bootstrap-server localhost:29092 > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ewm-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "on-failure"
+    command: >
+      bash -ec "kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic stats.user-actions.v1 --partitions 1 --replication-factor 1 &&
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic stats.events-similarity.v1 --partitions 1 --replication-factor 1"
+
+  stats-collector:
+    build:
+      context: .
+      dockerfile: stats/stats-server/Dockerfile
+      args:
+        JAR_FILE: stats/stats-collector/target/*.jar
+    image: ewm-stats-collector
+    container_name: ewm-stats-collector
+    restart: unless-stopped
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED=false
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+
+  stats-aggregator:
+    build:
+      context: .
+      dockerfile: stats/stats-server/Dockerfile
+      args:
+        JAR_FILE: stats/stats-aggregator/target/*.jar
+    image: ewm-stats-aggregator
+    container_name: ewm-stats-aggregator
+    restart: unless-stopped
+    depends_on:
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED=false
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+
+  stats-analyzer:
+    build:
+      context: .
+      dockerfile: stats/stats-server/Dockerfile
+      args:
+        JAR_FILE: stats/stats-analyzer/target/*.jar
+    image: ewm-stats-analyzer
+    container_name: ewm-stats-analyzer
+    restart: unless-stopped
+    depends_on:
+      stats-db:
+        condition: service_healthy
+      config-server:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://stats-db:5432/statistics
+      - SPRING_DATASOURCE_USERNAME=statistics
+      - SPRING_DATASOURCE_PASSWORD=statistics
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
+      - SPRING_CLOUD_CONFIG_DISCOVERY_ENABLED=false
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092

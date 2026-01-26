@@ -1,6 +1,5 @@
 package ru.practicum.client.event;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.client.MyFeignClientFallback;
@@ -32,7 +31,7 @@ public interface EventClient {
 
     @GetMapping("/events/{id}")
     EventFullDto getEventById(@PathVariable Long id,
-                              @RequestHeader(value = "X-Forwarded-For", required = false) String ip);
+                              @RequestHeader(value = "X-EWM-USER-ID", required = false) Long userId);
 
     @GetMapping("/events")
     List<EventFullDto> getEvents(@RequestParam(required = false) String text,
@@ -54,9 +53,7 @@ public interface EventClient {
 
     @GetMapping("/users/{userId}/events/{eventId}")
     EventFullDto getEventByUserIdAndEventId(@PathVariable("userId") Long userId,
-                                            @PathVariable("eventId") Long eventId,
-                                            @RequestHeader(value = "X-Forwarded-For", required = false)
-                                                        HttpServletRequest request);
+                                            @PathVariable("eventId") Long eventId);
 
     @GetMapping("/admin/events")
     List<EventFullDto> getAdminEvents(@RequestParam(required = false) String text,

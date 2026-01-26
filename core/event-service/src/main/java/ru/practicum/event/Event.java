@@ -53,5 +53,5 @@ public class Event {
     State state;
     String title;
     @Transient
-    Long views;
+    Double rating;
 }
