@@ -39,20 +39,25 @@ public class SimilarityAggregator {
                 continue;
             }
             Double otherWeight = entry.getValue().get(userId);
-            if (otherWeight == null) {
-                continue;
+            if (otherWeight != null) {
+                double oldMin = Math.min(oldWeight, otherWeight);
+                double newMin = Math.min(newWeight, otherWeight);
+                double delta = newMin - oldMin;
+                if (delta != 0.0) {
+                    addMinWeightsSum(eventId, otherEventId, delta);
+                }
             }
-            double oldMin = Math.min(oldWeight, otherWeight);
-            double newMin = Math.min(newWeight, otherWeight);
-            double delta = newMin - oldMin;
-            if (delta == 0.0) {
-                continue;
-            }
-            addMinWeightsSum(eventId, otherEventId, delta);
+
             double sMin = getMinWeightsSum(eventId, otherEventId);
+            if (sMin <= 0.0) {
+                continue;
+            }
             double sA = eventWeightsSum.getOrDefault(eventId, 0.0);
             double sB = eventWeightsSum.getOrDefault(otherEventId, 0.0);
-            double score = (sA > 0.0 && sB > 0.0) ? (sMin / (sA * sB)) : 0.0;
+            if (sA <= 0.0 || sB <= 0.0) {
+                continue;
+            }
+            double score = sMin / Math.sqrt(sA * sB);
 
             EventSimilarityAvro similarity = EventSimilarityAvro.newBuilder()
                     .setEventA(Math.min(eventId, otherEventId))
