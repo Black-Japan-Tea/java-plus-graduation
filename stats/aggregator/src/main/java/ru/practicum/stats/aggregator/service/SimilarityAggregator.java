@@ -39,14 +39,17 @@ public class SimilarityAggregator {
                 continue;
             }
             Double otherWeight = entry.getValue().get(userId);
-            if (otherWeight != null) {
-                double oldMin = Math.min(oldWeight, otherWeight);
-                double newMin = Math.min(newWeight, otherWeight);
-                double delta = newMin - oldMin;
-                if (delta != 0.0) {
-                    addMinWeightsSum(eventId, otherEventId, delta);
-                }
+            if (otherWeight == null) {
+                continue;
             }
+
+            double oldMin = Math.min(oldWeight, otherWeight);
+            double newMin = Math.min(newWeight, otherWeight);
+            double delta = newMin - oldMin;
+            if (delta == 0.0) {
+                continue;
+            }
+            addMinWeightsSum(eventId, otherEventId, delta);
 
             double sMin = getMinWeightsSum(eventId, otherEventId);
             if (sMin <= 0.0) {
