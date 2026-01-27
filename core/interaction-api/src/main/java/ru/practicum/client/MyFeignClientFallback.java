@@ -1,6 +1,5 @@
 package ru.practicum.client;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -125,7 +124,7 @@ public class MyFeignClientFallback implements UserAdminClient, RequestClient, Ev
     }
 
     @Override
-    public EventFullDto getEventById(Long id, String ip) {
+    public EventFullDto getEventById(Long id, Long userId) {
         throw new RuntimeException("Сервис event-service временно недоступен (getEventById)");
     }
 
@@ -141,7 +140,7 @@ public class MyFeignClientFallback implements UserAdminClient, RequestClient, Ev
     }
 
     @Override
-    public EventFullDto getEventByUserIdAndEventId(Long userId, Long eventId, HttpServletRequest request) {
+    public EventFullDto getEventByUserIdAndEventId(Long userId, Long eventId) {
         throw new RuntimeException("Сервис event-service временно недоступен (getEventByUserIdAndEventId)");
     }
 

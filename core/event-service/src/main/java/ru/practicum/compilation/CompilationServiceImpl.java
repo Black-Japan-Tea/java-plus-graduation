@@ -12,6 +12,7 @@ import ru.practicum.dto.event.EventShortDto;
 import ru.practicum.event.Event;
 import ru.practicum.event.EventRepository;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.grpc.RecommendationsClient;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -26,6 +27,7 @@ public class CompilationServiceImpl implements CompilationService {
     private final EventRepository eventRepository;
     private final CategoryService categoryService;
     private final UserAdminClient userAdminClient;
+    private final RecommendationsClient recommendationsClient;
 
     @Override
     public CompilationDto create(NewCompilationDto dto) {
@@ -93,6 +95,13 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     private List<EventShortDto> mapToShortDtos(Collection<Event> events) {
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .toList();
+        var ratings = eventIds.isEmpty()
+                ? java.util.Map.<Long, Double>of()
+                : recommendationsClient.getInteractionsCount(eventIds);
+
         return events.stream()
                 .map(event -> EventShortDto.builder()
                         .id(event.getId()) // уже Long
@@ -101,7 +110,7 @@ public class CompilationServiceImpl implements CompilationService {
                         .eventDate(event.getEventDate())
                         .paid(event.getPaid())
                         .confirmedRequests(event.getConfirmedRequests())
-                        .views(event.getViews())
+                        .rating(ratings.getOrDefault(event.getId(), 0.0))
                         .initiator(userAdminClient.getUserShortById(event.getInitiatorId()))
                         .category(categoryService.getById(event.getCategory()))
                         .build())

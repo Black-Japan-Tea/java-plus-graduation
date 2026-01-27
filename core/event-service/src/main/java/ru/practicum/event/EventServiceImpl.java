@@ -5,9 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import ru.practicum.EndpointHitDto;
-import ru.practicum.StatsClient;
-import ru.practicum.ViewStatsDto;
 import ru.practicum.category.CategoryRepository;
 import ru.practicum.client.user.UserAdminClient;
 import ru.practicum.dto.event.EventFullDto;
@@ -20,11 +17,16 @@ import ru.practicum.exception.BadRequestException;
 import ru.practicum.exception.ConditionsNotMetException;
 import ru.practicum.exception.ConflictPropertyConstraintException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.grpc.CollectorClient;
+import ru.practicum.grpc.RecommendedEvent;
+import ru.practicum.grpc.RecommendationsClient;
+import ru.practicum.grpc.UserActionType;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -32,26 +34,18 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
-    private final StatsClient statsClient;
     private final CategoryRepository categoryRepository;
     private final EventDtoMapper eventDtoMapper;
     private final UserAdminClient userAdminClient;
+    private final CollectorClient collectorClient;
+    private final RecommendationsClient recommendationsClient;
 
-    public EventFullDto saveEvent(NewEventDto newEventDto, long userId, String ip) {
+    public EventFullDto saveEvent(NewEventDto newEventDto, long userId) {
         log.debug("Попытка сохранить новое событие: {}", newEventDto);
 
         checkUserId(userId);
         checkCategoryId(newEventDto.getCategory());
 
-        String uri = "/users/" + userId + "/events";
-
-        log.info("Отправка статистики: ip={}, uri={}", ip, uri);
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
         Event event = eventDtoMapper.mapToModel(newEventDto, userId);
         event.setCreatedOn(LocalDateTime.now());
 
@@ -65,25 +59,18 @@ public class EventServiceImpl implements EventService {
         Event savedEvent = eventRepository.save(event);
         log.info("Событие сохранено с ID {}", savedEvent.getId());
         EventFullDto dto = eventDtoMapper.mapToFullDto(savedEvent);
+        dto.setRating(getRatingForEvent(dto.getId()));
         log.debug("Сформированный EventFullDto: {}", dto);
         return dto;
     }
 
     public EventFullDto updateEvent(UpdatedEventDto updatedEvent,
-                                    long userId, long eventId, String ip) {
-        log.info("Попытка обновить событие. userId={}, eventId={}, ip={}", userId, eventId, ip);
+                                    long userId, long eventId) {
+        log.info("Попытка обновить событие. userId={}, eventId={}", userId, eventId);
 
         checkUserId(userId);
 
        Event event = checkAndGetEventById(eventId);
-
-        String uri = "/users/" + userId + "/events/" + eventId;
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
 
         if (!event.getState().equals(State.CANCELED) && !event.getState().equals(State.PENDING)) {
             log.warn("Событие нельзя изменить. Состояние: {}, Модерация: {}",
@@ -104,22 +91,16 @@ public class EventServiceImpl implements EventService {
         Event savedUpdatedEvent = eventRepository.save(event);
         log.info("Событие успешно обновлено. id={}", savedUpdatedEvent.getId());
 
-        return eventDtoMapper.mapToFullDto(savedUpdatedEvent);
+        EventFullDto dto = eventDtoMapper.mapToFullDto(savedUpdatedEvent);
+        dto.setRating(getRatingForEvent(dto.getId()));
+        return dto;
     }
 
     public EventFullDto updateAdminEvent(UpdatedEventDto updatedEvent,
-                                         long eventId, String ip) {
-        log.info("Админ запрашивает обновление события. eventId={}, ip={}", eventId, ip);
+                                         long eventId) {
+        log.info("Админ запрашивает обновление события. eventId={}", eventId);
 
         Event event = checkAndGetEventById(eventId);
-
-        String uri = "/admin/events/" + eventId;
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
 
         if (event.getEventDate().isBefore(LocalDateTime.now().plusHours(1))) {
             log.warn("Событие начинается в течение часа: {}", event.getEventDate());
@@ -146,15 +127,17 @@ public class EventServiceImpl implements EventService {
         Event savedUpdatedEvent = eventRepository.save(event);
         log.info("Событие успешно обновлено админом. id={}", savedUpdatedEvent.getId());
 
-        return eventDtoMapper.mapToFullDto(savedUpdatedEvent);
+        EventFullDto dto = eventDtoMapper.mapToFullDto(savedUpdatedEvent);
+        dto.setRating(getRatingForEvent(dto.getId()));
+        return dto;
     }
 
 
     public List<EventFullDto> getEvents(String text, List<Long> categories, Boolean paid,
                                         String rangeStart, String rangeEnd, Boolean onlyAvailable,
-                                        String sort, Integer from, Integer size, String ip, String user) {
-        log.info("Получен запрос на получение событий. Пользователь: {}, IP: {}, параметры: [text: {}, categories: {}, paid: {}, rangeStart: {}, rangeEnd: {}, onlyAvailable: {}, sort: {}, from: {}, size: {}]",
-                user, ip, text, categories, paid, rangeStart, rangeEnd, onlyAvailable, sort, from, size);
+                                        String sort, Integer from, Integer size, String user) {
+        log.info("Получен запрос на получение событий. Пользователь: {}, параметры: [text: {}, categories: {}, paid: {}, rangeStart: {}, rangeEnd: {}, onlyAvailable: {}, sort: {}, from: {}, size: {}]",
+                user, text, categories, paid, rangeStart, rangeEnd, onlyAvailable, sort, from, size);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -176,15 +159,6 @@ public class EventServiceImpl implements EventService {
         log.info("Финальный диапазон дат: start={}, end={}", start, end);
 
         boolean isAdmin = !"user".equalsIgnoreCase(user);
-        String uri = isAdmin ? "/admin/events" : "/events";
-
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
-
 
         Sort sortParam;
         if (sort != null && sort.equals("EVENT_DATE")) {
@@ -206,28 +180,28 @@ public class EventServiceImpl implements EventService {
 
         log.info("Получено {} событий после фильтрации", events.size());
 
-        List<EventFullDto> eventsWithViews = events.stream()
-                .map(e -> {
-                    String uriEvent = "/events/" + e.getId();
-                    List<ViewStatsDto> statsList = statsClient.getStats(
-                            LocalDateTime.of(1900, 1, 1, 0, 0), LocalDateTime.now(), List.of(uriEvent), false);
-                    long views = statsList.isEmpty() ? 0L : statsList.getFirst().getHits();
-                    e.setViews(views);
-                    return e;
-                }).toList();
+        Map<Long, Double> ratings = getRatings(events.stream()
+                .map(EventFullDto::getId)
+                .toList());
+        List<EventFullDto> eventsWithRating = events.stream()
+                .map(event -> {
+                    event.setRating(ratings.getOrDefault(event.getId(), 0.0));
+                    return event;
+                })
+                .toList();
 
         if (sort != null && sort.equals("VIEWS")) {
-            log.info("Сортировка по количеству просмотров");
-            return events.stream()
-                    .sorted(Comparator.comparing(EventFullDto::getViews))
+            log.info("Сортировка по рейтингу мероприятий");
+            return eventsWithRating.stream()
+                    .sorted(Comparator.comparing(EventFullDto::getRating))
                     .toList();
         }
 
-        return eventsWithViews;
+        return eventsWithRating;
     }
 
-    public List<EventShortDto> getEventsByUserId(long userId, Integer from, Integer size, String ip) {
-        log.debug("Получен запрос на получение событий пользователя с id={} (from={}, size={}, ip={})", userId, from, size, ip);
+    public List<EventShortDto> getEventsByUserId(long userId, Integer from, Integer size) {
+        log.debug("Получен запрос на получение событий пользователя с id={} (from={}, size={})", userId, from, size);
 
         log.debug("Проверка существования пользователя с id={}", userId);
         if (userAdminClient.getUserById(userId) == null) {
@@ -235,15 +209,6 @@ public class EventServiceImpl implements EventService {
             throw new NotFoundException("Пользователь с id " + userId + " не найден");
         }
         log.debug("Пользователь с id {} найден", userId);
-
-        String uri = "/users/" + userId + "/events";
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
-
 
         int safeFrom = (from != null) ? from : 0;
         int safeSize = (size != null) ? size : 10;
@@ -253,35 +218,24 @@ public class EventServiceImpl implements EventService {
         List<Event> userEvents = eventRepository.findAllByInitiatorId(userId, page);
         log.debug("Найдено {} событий", userEvents.size());
 
+        Map<Long, Double> ratings = getRatings(userEvents.stream()
+                .map(Event::getId)
+                .toList());
+
         return userEvents.stream()
-                .map(e -> {
-                    String uriEvent = "/events/" + e.getId();
-                    List<ViewStatsDto> statsList = statsClient.getStats(
-                            LocalDateTime.of(1900, 1, 1, 0, 0), LocalDateTime.now(), List.of(uriEvent), false);
-                    long views = statsList.isEmpty() ? 0L : statsList.getFirst().getHits();
-                    e.setViews(views);
-                    return e;
-                })
+                .peek(event -> event.setRating(ratings.getOrDefault(event.getId(), 0.0)))
                 .map(eventDtoMapper::mapToShortDto)
                 .toList();
     }
 
-    public EventFullDto getEventByUserIdAndEventId(long userId, long eventId, String ip) {
-        log.debug("Получен запрос на получение события с id={} пользователя с id={} (ip={})",
-                eventId, userId, ip);
+    public EventFullDto getEventByUserIdAndEventId(long userId, long eventId) {
+        log.debug("Получен запрос на получение события с id={} пользователя с id={}",
+                eventId, userId);
 
         if (userAdminClient.getUserById(userId) == null) {
             log.warn("Пользователь с id={} не найден", userId);
             throw new NotFoundException("Пользователь с id " + userId + " не найден");
         }
-
-        String uri = "/users/" + userId + "/events/" + eventId;
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
 
         Optional<Event> eventOpt = eventRepository.findByInitiatorIdAndId(userId, eventId);
         if (eventOpt.isEmpty()) {
@@ -290,21 +244,14 @@ public class EventServiceImpl implements EventService {
         }
 
         log.debug("Событие с id={} найдено для пользователя с id={}", eventId, userId);
-        return eventDtoMapper.mapToFullDto(eventOpt.get());
+        EventFullDto dto = eventDtoMapper.mapToFullDto(eventOpt.get());
+        dto.setRating(getRatingForEvent(dto.getId()));
+        return dto;
     }
 
 
-    public EventFullDto getEventById(long id, String ip) {
-        log.debug("Получен запрос на получение события с id={} от ip={}", id, ip);
-
-        String uri = "/events/" + id;
-        statsClient.saveHit(EndpointHitDto.builder()
-                .app("ewm-main-service")
-                .ip(ip)
-                .uri(uri)
-                .timestamp(LocalDateTime.now())
-                .build());
-
+    public EventFullDto getEventById(long id, long userId) {
+        log.debug("Получен запрос на получение события с id={} от пользователя {}", id, userId);
         Optional<Event> eventOpt = eventRepository.findById(id);
         if (eventOpt.isEmpty()) {
             log.warn("Событие с id={} не найдено", id);
@@ -318,13 +265,13 @@ public class EventServiceImpl implements EventService {
 
 
         log.debug("Событие с id={} найдено", id);
-        EventFullDto dto = eventDtoMapper.mapToFullDto(event);
-        List<ViewStatsDto> statsList = statsClient.getStats(
-                LocalDateTime.of(1900, 1, 1, 0, 0), LocalDateTime.now(), List.of(uri), true);
-        long views = statsList.isEmpty() ? 0L : statsList.get(0).getHits();
-        dto.setViews(views);
+        if (userId > 0) {
+            collectorClient.collect(userId, id, UserActionType.VIEW);
+        }
 
-        log.debug("Количество просмотров события с id={}: {}", id, views);
+        EventFullDto dto = eventDtoMapper.mapToFullDto(event);
+        dto.setRating(getRatingForEvent(id));
+        log.debug("Рейтинг события с id={}: {}", id, dto.getRating());
         return dto;
     }
 
@@ -344,7 +291,55 @@ public class EventServiceImpl implements EventService {
         applyUpdateFromFull(foundEvent, event);
         Event saved = eventRepository.saveAndFlush(foundEvent);
         log.debug("Количество запросов после обновления: " + saved.getConfirmedRequests());
-        return eventDtoMapper.mapToFullDto(saved);
+        EventFullDto dto = eventDtoMapper.mapToFullDto(saved);
+        dto.setRating(getRatingForEvent(dto.getId()));
+        return dto;
+    }
+
+    public List<EventShortDto> getRecommendations(long userId, int maxResults) {
+        checkUserId(userId);
+        if (maxResults <= 0) {
+            return List.of();
+        }
+
+        List<RecommendedEvent> recommendations = recommendationsClient.getRecommendationsForUser(userId, maxResults);
+        if (recommendations.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> eventIds = recommendations.stream()
+                .map(RecommendedEvent::eventId)
+                .toList();
+
+        Map<Long, Event> eventsById = eventRepository.findAllById(eventIds).stream()
+                .filter(event -> event.getState() == State.PUBLISHED)
+                .collect(java.util.stream.Collectors.toMap(Event::getId, event -> event));
+
+        List<EventShortDto> result = new java.util.ArrayList<>();
+        for (RecommendedEvent recommendation : recommendations) {
+            Event event = eventsById.get(recommendation.eventId());
+            if (event == null) {
+                continue;
+            }
+            EventShortDto dto = eventDtoMapper.mapToShortDto(event);
+            dto.setRating(recommendation.score());
+            result.add(dto);
+        }
+        return result;
+    }
+
+    public void likeEvent(long eventId, long userId) {
+        checkUserId(userId);
+        Event event = checkAndGetEventById(eventId);
+        if (!event.getState().equals(State.PUBLISHED)) {
+            throw new NotFoundException("Событие с id " + eventId + " не опубликовано");
+        }
+        double weight = recommendationsClient.getUserInteractions(userId, List.of(eventId))
+                .getOrDefault(eventId, 0.0);
+        if (weight <= 0.0) {
+            throw new BadRequestException("Пользователь может лайкать только просмотренные события");
+        }
+        collectorClient.collect(userId, eventId, UserActionType.LIKE);
     }
 
     private void applyUpdateFromFull(Event event, EventFullDto dto) {
@@ -411,8 +406,8 @@ public class EventServiceImpl implements EventService {
             event.setState(dto.getState());
         }
 
-        if (dto.getViews() != null) {
-            event.setViews(dto.getViews());
+        if (dto.getRating() != null) {
+            event.setRating(dto.getRating());
         }
 
         log.info("Обновление Event завершено успешно");
@@ -484,5 +479,16 @@ public class EventServiceImpl implements EventService {
             throw new NotFoundException("Событие с id " + eventId + " не найдено");
         }
         return eventOpt.get();
+    }
+
+    private Map<Long, Double> getRatings(List<Long> eventIds) {
+        if (eventIds == null || eventIds.isEmpty()) {
+            return Map.of();
+        }
+        return recommendationsClient.getInteractionsCount(eventIds);
+    }
+
+    private double getRatingForEvent(long eventId) {
+        return getRatings(List.of(eventId)).getOrDefault(eventId, 0.0);
     }
 }

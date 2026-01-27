@@ -9,24 +9,28 @@ import java.util.List;
 
 public interface EventService {
 
-    EventFullDto saveEvent(NewEventDto newEventDto, long userId, String ip);
+    EventFullDto saveEvent(NewEventDto newEventDto, long userId);
 
     List<EventFullDto> getEvents(String text, List<Long> categories, Boolean paid,
                                  String rangeStart, String rangeEnd, Boolean onlyAvailable,
                                  String sort, Integer from, Integer size,
-                                 String ip, String user);
+                                 String user);
 
-    EventFullDto getEventById(long id, String ip);
+    EventFullDto getEventById(long id, long userId);
 
-    List<EventShortDto> getEventsByUserId(long userId, Integer from, Integer size, String ip);
+    List<EventShortDto> getEventsByUserId(long userId, Integer from, Integer size);
 
-    EventFullDto getEventByUserIdAndEventId(long userId, long eventId, String ip);
+    EventFullDto getEventByUserIdAndEventId(long userId, long eventId);
 
     EventFullDto updateEvent(UpdatedEventDto updatedEventDto,
-                                       long userId, long eventId, String ip);
+                                       long userId, long eventId);
 
     EventFullDto updateAdminEvent(UpdatedEventDto updatedEventDto,
-                                            long eventId, String ip);
+                                            long eventId);
+
+    List<EventShortDto> getRecommendations(long userId, int maxResults);
+
+    void likeEvent(long eventId, long userId);
 
     EventFullDto saveFullEvent(EventFullDto event);
 

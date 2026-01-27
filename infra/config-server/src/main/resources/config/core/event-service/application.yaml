@@ -24,8 +24,18 @@ spring:
     username: mainservice
     password: mainservice
 
-stats-server:
-  url: http://stats-server
+grpc:
+  client:
+    collector:
+      address: 'discovery:///collector'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    analyzer:
+      address: 'discovery:///analyzer'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
 
 feign:
   client:

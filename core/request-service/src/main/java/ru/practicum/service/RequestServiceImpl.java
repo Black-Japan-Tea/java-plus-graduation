@@ -18,6 +18,8 @@ import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.ConflictPropertyConstraintException;
 import ru.practicum.exception.ConflictRelationsConstraintException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.grpc.CollectorClient;
+import ru.practicum.grpc.UserActionType;
 import ru.practicum.mapper.RequestMapper;
 import ru.practicum.model.Request;
 import ru.practicum.repository.RequestRepository;
@@ -34,6 +36,7 @@ public class RequestServiceImpl implements RequestService {
     private final RequestRepository requestRepository;
     private final EventClient eventClient;
     private final UserAdminClient userAdminClient;
+    private final CollectorClient collectorClient;
 
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
@@ -82,7 +85,9 @@ public class RequestServiceImpl implements RequestService {
                         ))
                 .build();
 
-        return RequestMapper.toParticipationRequestDto(requestRepository.save(request));
+        Request saved = requestRepository.save(request);
+        collectorClient.collect(user.getId(), event.getId(), UserActionType.REGISTER);
+        return RequestMapper.toParticipationRequestDto(saved);
     }
 
 
@@ -234,7 +239,7 @@ public class RequestServiceImpl implements RequestService {
 
     private EventFullDto findEvent(Long eventId) {
         try {
-            return eventClient.getEventById(eventId, "requestService");
+            return eventClient.getEventById(eventId, null);
         } catch (FeignException.NotFound e) {
             throw new ConflictException("Нельзя подать заявку: событие с id " + eventId + " не опубликовано");
         }
@@ -247,7 +252,7 @@ public class RequestServiceImpl implements RequestService {
 
     private void checkInitiatorEvent(Long initiatorId, Long eventId) {
         log.debug("Проверяем пользователя с id " + initiatorId + " на владение события с id " + eventId);
-        EventFullDto check = eventClient.getEventByUserIdAndEventId(initiatorId, eventId,  null);
+        EventFullDto check = eventClient.getEventByUserIdAndEventId(initiatorId, eventId);
         log.debug("Результат проверки: " + check);
         if (check == null || !Objects.equals(check.getInitiator().getId(), initiatorId)) {
             throw new NotFoundException(
